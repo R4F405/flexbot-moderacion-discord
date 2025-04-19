@@ -150,7 +150,7 @@ Si tienes preguntas o necesitas ayuda:
 
 ## 🌟 Créditos
 
-Desarrollado con ❤️ por [Tu Nombre]
+Desarrollado por R4F405
 
 ---
 ⭐ Si te gusta este proyecto, ¡no olvides darle una estrella en GitHub! 
