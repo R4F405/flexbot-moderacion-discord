@@ -20,7 +20,7 @@ class Utilities(commands.Cog):
         await message.delete()
 
     @commands.command()
-    async def info(self, ctx):
+    async def infomod(self, ctx):
         embed = discord.Embed(
             title="📋 Comandos de Moderación",
             description="Aquí tienes una lista de comandos disponibles con `!flex`:",
@@ -32,7 +32,7 @@ class Utilities(commands.Cog):
         embed.add_field(name="`!flex warn @usuario [razón]`", value="Envía una advertencia a un usuario.", inline=False)
         embed.add_field(name="`!flex clear [cantidad]`", value="Elimina una cantidad de mensajes del canal.", inline=False)
         embed.add_field(name="`!flex slowmode [segundos]`", value="Activa el modo lento en el canal actual.", inline=False)
-        embed.add_field(name="`!flex info`", value="Muestra este mensaje de ayuda.", inline=False)
+        embed.add_field(name="`!flex infomod`", value="Muestra este mensaje de ayuda.", inline=False)
         embed.set_footer(text="Sistema de Moderación | Bot creado por Rafa")
         await ctx.send(embed=embed)
 
@@ -51,7 +51,7 @@ class Utilities(commands.Cog):
             await ctx.send(f"Modo lento establecido a {seconds} segundos en este canal.")
 
     @commands.command()
-    @commands.has_permissions(administrator=True)
+    @commands.has_permissions(manage_messages=True)
     async def userinfo(self, ctx, member: discord.Member = None):
         """
         Muestra información detallada sobre un usuario.
@@ -104,7 +104,7 @@ class Utilities(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command()
-    @commands.has_permissions(administrator=True)
+    @commands.has_permissions(manage_messages=True)
     async def serverinfo(self, ctx):
         """
         Muestra información detallada sobre el servidor.
