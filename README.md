@@ -1,156 +1,167 @@
-# 🤖 Bot de Moderación para Discord
+# 🤖 Discord Moderation Bot
 
-Un bot de Discord potente y fácil de usar, diseñado para ayudar en la moderación de servidores con múltiples funcionalidades.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python: 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/downloads/release/python-380/)
+[![Status: In Development](https://img.shields.io/badge/Status-In%20Development-green.svg)](https://github.com/R4F405/Bot_Discord_Moderacion_comandos.git)
 
-## ✨ Características
+A powerful and user-friendly Discord bot designed to assist in server moderation with multiple functionalities.
 
-### 📋 Sistema de Reportes
-- Permite a los usuarios reportar comportamiento inadecuado
-- Canal dedicado para la gestión de reportes
-- Sistema de seguimiento y estado de reportes
-- Acciones rápidas mediante reacciones
+## ✨ Features
 
-### 🛡️ Comandos de Moderación
-- Silenciar usuarios
-- Expulsar miembros
-- Banear usuarios
-- Sistema de anti-spam automático
-- Gestión de roles y permisos
+### 📋 Reporting System
+- Allows users to report inappropriate behavior
+- Dedicated channel for report management
+- Report tracking and status system
+- Quick actions via reactions
 
-### 📊 Comandos de Información
-- Información detallada de usuarios
-- Estadísticas del servidor
-- Sistema de ayuda dividido por niveles de acceso
+### 🛡️ Moderation Commands
+- Mute users
+- Kick members
+- Ban users
+- Automatic anti-spam system
+- Role and permission management
 
-## 🚀 Comandos Disponibles
+### 📊 Information Commands
+- Detailed user information
+- Server statistics
+- Help system divided by access levels
 
-### Comandos para Usuarios
+### ❌ Prerequisites
+Before you begin, ensure you have the following:
+
+- Python 3.8 or higher installed.
+- A Discord account.
+- A Discord server where you have permissions to add bots.
+
+## 🚀 Available Commands
+
+### User Commands
 ```
-!flex info    - Muestra los comandos disponibles para usuarios
-!flex report  - Reporta a un usuario por comportamiento inadecuado
-```
-
-### Comandos para Moderadores
-```
-!flex info2      - Muestra los comandos de moderación
-!flex kick       - Expulsa a un usuario
-!flex ban        - Banea a un usuario
-!flex unban      - Desbanea a un usuario
-!flex mute       - Silencia a un usuario
-!flex unmute     - Remueve el silencio de un usuario
-!flex userinfo   - Muestra información detallada de un usuario
-!flex serverinfo - Muestra información del servidor
-!flex reports    - Gestiona los reportes
+!flex info     - Displays available commands for users
+!flex report   - Reports a user for inappropriate behavior
 ```
 
-## 📥 Instalación
+### Moderator Commands
+```
+!flex info2      - Displays moderation commands
+!flex kick       - Kicks a user
+!flex ban        - Bans a user
+!flex unban      - Unbans a user
+!flex mute       - Mutes a user
+!flex unmute     - Unmutes a user
+!flex userinfo   - Displays detailed information about a user
+!flex serverinfo - Displays server information
+!flex reports    - Manages reports
+```
 
-1. Clona el repositorio:
+## 📥 Installation
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/TuUsuario/Bot_Discord_Moderacion_comandos.git
+git clonehttps://github.com/R4F405/Bot_Discord_Moderacion_comandos.git
 ```
 
-2. Instala las dependencias:
+2. Install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🔑 Configuración del Bot en Discord
+## 🔑 Discord Bot Setup
 
-1. Ve a [Discord Developer Portal](https://discord.com/developers/applications)
-2. Haz clic en "New Application" y dale un nombre a tu aplicación
-3. En el menú lateral, selecciona "Bot"
-4. Haz clic en "Add Bot" y confirma
-5. Bajo el nombre del bot, encontrarás el botón "Reset Token" - haz clic y copia el token
-6. En la sección "Privileged Gateway Intents", activa:
-   - Presence Intent
-   - Server Members Intent
-   - Message Content Intent
-7. Para invitar el bot a tu servidor:
-   - Ve a la sección "OAuth2" > "URL Generator"
-   - Selecciona los scopes: `bot` y `applications.commands`
-   - Selecciona los permisos necesarios listados en la sección "🔐 Permisos Necesarios"
-   - Usa la URL generada para invitar el bot a tu servidor
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Click on "New Application" and give your application a name.
+3. In the side menu, select "Bot".
+4. Click "Add Bot" and confirm.
+5. Under the bot's name, you will find the "Reset Token" button - click it and copy the token.
+6. In the "Privileged Gateway Intents" section, enable:
+    - Presence Intent
+    - Server Members Intent
+    - Message Content Intent
+7. To invite the bot to your server:
+    - Go to the "OAuth2" > "URL Generator" section.
+    - Select the scopes: `bot` and `applications.commands`.
+    - Select the necessary permissions listed in the "🔐 Required Permissions" section.
+    - Use the generated URL to invite the bot to your server.
 
-## ⚙️ Configuración del Archivo .env
+## ⚙️ .env File Configuration
 
-1. Modifica el archivo `.env.example` en la raíz del proyecto y dejalo como `.env`
-2. Añade tu token:
+1. Modify the `.env.example` file in the project root and rename it to `.env`.
+2. Add your token:
 ```env
-DISCORD_TOKEN=tu_token_aqui
+DISCORD_TOKEN=your_token_here
 ```
 
-3. Ejecuta el bot:
+3. Run the bot:
 ```bash
 python main.py
 ```
 
-## 🔧 Configuración
+## 🔧 Configuration
 
-El bot creará automáticamente:
-- Canal de reportes
-- Rol de silenciado
-- Categoría de moderación
+The bot will automatically create:
+- Reports channel
+- Muted role
+- Moderation category
 
-## 🛡️ Sistema de Reportes
+## 🛡️ Reporting System
 
-### Cómo Reportar
-1. Usa el comando `!flex report @usuario razón`
-2. El reporte se enviará al canal de moderación
-3. Los moderadores pueden:
-   - ✅ Marcar como resuelto
-   - ❌ Descartar reporte
-   - 🔨 Tomar acciones de moderación
+### How to Report
+1. Use the command `!flex report @user reason`.
+2. The report will be sent to the moderation channel.
+3. Moderators can:
+    - ✅ Mark as resolved
+    - ❌ Discard report
+    - 🔨 Take moderation actions
 
 ### Anti-Spam
-- Detecta automáticamente spam (5 mensajes en 3 segundos)
-- Silencia temporalmente a usuarios que spamean
-- Los moderadores están exentos del sistema
+- Automatically detects spam (5 messages in 3 seconds).
+- Temporarily mutes users who spam.
+- Moderators are exempt from this system.
 
-## 📝 Gestión de Reportes
+## 📝 Report Management
 
-Los moderadores pueden ver los reportes usando:
+Moderators can view reports using:
 ```
-!flex reports          - Muestra reportes pendientes
-!flex reports resuelto - Muestra reportes resueltos
-!flex reports todos    - Muestra todos los reportes
+!flex reports          - Displays pending reports
+!flex reports resolved - Displays resolved reports
+!flex reports all      - Displays all reports
 ```
 
-## 🔐 Permisos Necesarios
+## 🔐 Required Permissions
 
-El bot necesita los siguientes permisos:
-- Gestionar mensajes
-- Gestionar roles
-- Expulsar miembros
-- Banear miembros
-- Ver canales
-- Enviar mensajes
-- Gestionar canales
-- Añadir reacciones
+The bot requires the following permissions:
+- Manage Messages
+- Manage Roles
+- Kick Members
+- Ban Members
+- View Channels
+- Send Messages
+- Manage Channels
+- Add Reactions
 
-## 🤝 Contribuir
+## 🤝 Contributing
 
-Las contribuciones son bienvenidas. Por favor:
-1. Haz fork del proyecto
-2. Crea una rama para tu característica
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request
+Contributions are welcome. Please:
+1. Fork the project.
+2. Create a branch for your feature.
+3. Commit your changes.
+4. Push to the branch.
+5. Open a Pull Request.
 
-## 📄 Licencia
+## 📄 License
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+This project is under the MIT License - see the [LICENSE](LICENSE) file for more details.
 
-## 🙋‍♂️ Soporte
+## 🙋‍♂️ Support
 
-Si tienes preguntas o necesitas ayuda:
-1. Abre un issue en GitHub
-2. Revisa la documentación
-3. Contacta con los mantenedores
+If you have questions or need help:
+1. Open an issue on GitHub.
+2. Review the documentation.
+3. Contact the maintainers.
 
-## 🌟 Créditos
+## 🌟 Credits
 
-Desarrollado por R4F405
+Developed by R4F405
 
 ---
-⭐ Si te gusta este proyecto, ¡no olvides darle una estrella en GitHub! 
+⭐ If you like this project, don't forget to give it a star on GitHub!
