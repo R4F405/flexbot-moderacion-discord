@@ -15,7 +15,28 @@ class Reports(commands.Cog):
         self.bot = bot
         self.reports_file = 'data/reports.json'
         self.pending_actions = {}  # Para almacenar acciones pendientes
+        self.muted_role_name = "Muted" # Consistente con Moderation cog
         self.load_reports()
+
+    async def get_or_create_muted_role(self, guild: discord.Guild) -> discord.Role:
+        """Obtiene o crea el rol 'Muted' y configura sus permisos."""
+        # Intenta obtener el cog de Moderación para usar su método, si está cargado
+        moderation_cog = self.bot.get_cog("Moderation")
+        if moderation_cog and hasattr(moderation_cog, "get_or_create_muted_role"):
+            return await moderation_cog.get_or_create_muted_role(guild)
+
+        # Fallback si el cog de Moderación no está disponible o no tiene el método
+        muted_role = discord.utils.get(guild.roles, name=self.muted_role_name)
+        if muted_role is None:
+            muted_role = await guild.create_role(name=self.muted_role_name, reason="Rol para silenciar usuarios")
+            for channel in guild.channels:
+                try:
+                    await channel.set_permissions(muted_role, send_messages=False, speak=False, add_reactions=False)
+                except discord.Forbidden:
+                    print(f"Reports Cog: No se pudieron establecer permisos para Muted en {channel.name}")
+                except Exception as e:
+                    print(f"Reports Cog: Error estableciendo permisos para Muted en {channel.name}: {e}")
+        return muted_role
 
     def load_reports(self):
         """Cargar reportes existentes o crear archivo si no existe"""
@@ -127,10 +148,11 @@ class Reports(commands.Cog):
                         'reportes',
                         category=category,
                         overwrites=overwrites,
-                        topic="Canal para reportes de usuarios"
+                        topic="Canal para la gestión de reportes de usuarios."
                     )
                 except Exception as e:
-                    await ctx.send(f"No se pudo crear el canal de reportes: {e}", delete_after=10)
+                    await ctx.send(f"No se pudo crear el canal de reportes. Error: {e}", delete_after=10)
+                    print(f"Error creando canal de reportes: {e}")
                     return
 
             # Crear embed para el reporte
@@ -167,9 +189,9 @@ class Reports(commands.Cog):
             await report_msg.add_reaction("🔨")
             
         except Exception as e:
-            await ctx.send(f"Error al procesar el reporte: {e}", delete_after=10)
+            await ctx.send(f"Ocurrió un error al procesar tu reporte. Por favor, inténtalo de nuevo más tarde.", delete_after=10)
             import traceback
-            print(f"Error en command report: {e}")
+            print(f"Error en el comando report: {e}")
             traceback.print_exc()
 
     @commands.command()
@@ -191,20 +213,30 @@ class Reports(commands.Cog):
         """
         server_id = str(ctx.guild.id)
         if server_id not in self.reports or not self.reports[server_id]:
-            await ctx.send("No hay reportes registrados en este servidor.")
+            await ctx.send("Actualmente no hay reportes registrados en este servidor.")
             return
 
         reports_list = self.reports[server_id]
-        if status != "todos":
-            reports_list = [r for r in reports_list if r["status"] == status]
+
+        valid_statuses = ["pendiente", "resuelto", "descartado", "todos"]
+        if status.lower() not in valid_statuses:
+            await ctx.send(f"Estado no válido. Por favor, usa uno de: {', '.join(valid_statuses[:-1])} o {valid_statuses[-1]}.")
+            return
+
+        if status.lower() != "todos":
+            reports_list = [r for r in reports_list if r["status"] == status.lower()]
 
         if not reports_list:
-            await ctx.send(f"No hay reportes {status}s.")
+            await ctx.send(f"No se encontraron reportes con el estado '{status}'.")
             return
 
         # Crear embed con la lista de reportes
+        embed_title = f"Reportes {status.title()}"
+        if status.lower() == "todos":
+            embed_title = "Todos los Reportes"
+
         embed = discord.Embed(
-            title=f"Reportes {status.title()}s",
+            title=embed_title,
             color=discord.Color.blue(),
             timestamp=datetime.datetime.utcnow()
         )
@@ -328,37 +360,48 @@ class Reports(commands.Cog):
         guild = channel.guild
         target_user = guild.get_member(user_id)
         if not target_user:
-            await channel.send("No se pudo encontrar al usuario. Es posible que haya abandonado el servidor.")
+            await channel.send("No se pudo encontrar al usuario reportado. Es posible que haya abandonado el servidor.")
+            del self.pending_actions[message.id]
+            await message.delete() # Limpiar mensaje de acción
             return
 
         # Preguntar por la razón
-        await channel.send(f"{moderator.mention} Por favor, escribe la razón para esta acción (tienes 30 segundos):")
+        prompt_msg = await channel.send(f"{moderator.mention}, por favor, escribe la razón para esta acción (tienes 60 segundos). Escribe 'cancelar' para anular.")
 
         try:
             reason_msg = await self.bot.wait_for(
                 'message',
-                timeout=30.0,
+                timeout=60.0, # Aumentado a 60 segundos
                 check=lambda m: m.author == moderator and m.channel == channel
             )
+
+            if reason_msg.content.lower() == 'cancelar':
+                await channel.send("Acción cancelada.")
+                await prompt_msg.delete()
+                await reason_msg.delete()
+                del self.pending_actions[message.id]
+                # Considerar volver a poner las reacciones originales en el mensaje de acción o borrarlo.
+                await message.delete() # Borra el mensaje de "Selecciona una acción"
+                return
+
             reason = reason_msg.content
+            await prompt_msg.delete() # Limpiar prompt
+            await reason_msg.delete() # Limpiar respuesta del mod
         except asyncio.TimeoutError:
-            await channel.send("Tiempo agotado. Acción cancelada.")
+            await channel.send("Tiempo agotado para ingresar la razón. Acción cancelada.")
+            await prompt_msg.delete()
             del self.pending_actions[message.id]
+            await message.delete() # Borra el mensaje de "Selecciona una acción"
             return
 
         # Ejecutar acción correspondiente
         try:
             if emoji == "🔇":  # Silenciar
-                # Buscar o crear rol de silenciado
-                muted_role = discord.utils.get(guild.roles, name="Silenciado")
+                muted_role = await self.get_or_create_muted_role(guild)
                 if not muted_role:
-                    # Crear rol si no existe
-                    muted_role = await guild.create_role(name="Silenciado", reason="Rol para silenciar usuarios")
-                    
-                    # Configurar permisos en todos los canales de texto
-                    for channel in guild.channels:
-                        if isinstance(channel, discord.TextChannel):
-                            await channel.set_permissions(muted_role, send_messages=False)
+                    await channel.send(f"No se pudo obtener o crear el rol '{self.muted_role_name}'. Verifica los permisos del bot.")
+                    del self.pending_actions[message.id]
+                    return
                 
                 # Aplicar rol
                 await target_user.add_roles(muted_role, reason=reason)
@@ -385,12 +428,17 @@ class Reports(commands.Cog):
             log_embed.add_field(name="Razón", value=reason, inline=False)
             
             await channel.send(embed=log_embed)
+            await message.delete() # Eliminar el mensaje de selección de acción
             
+        except discord.Forbidden:
+            await channel.send(f"Error de permisos al intentar {action_type} a {target_user.mention}. Asegúrate de que el bot tiene los permisos necesarios y que su rol está por encima del rol del usuario.")
         except Exception as e:
-            await channel.send(f"Error al ejecutar la acción: {e}")
+            await channel.send(f"Ocurrió un error al ejecutar la acción '{action_type}'. Error: {e}")
+            print(f"Error en handle_mod_action ({action_type}): {e}")
         
         # Limpiar acción pendiente
-        del self.pending_actions[message.id]
+        if message.id in self.pending_actions:
+            del self.pending_actions[message.id]
 
 async def setup(bot):
     await bot.add_cog(Reports(bot)) 

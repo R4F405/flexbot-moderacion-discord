@@ -11,44 +11,41 @@ class Utilities(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     async def clear(self, ctx, amount: int):
         if amount < 1:
-            await ctx.send("Debes especificar un número positivo de mensajes para eliminar.")
+            await ctx.send("Debes especificar un número positivo de mensajes para eliminar (ej: `!flex clear 5`).")
+            return
+        if amount > 100: # Discord API limita a 100 mensajes por purga (sin contar el comando)
+            await ctx.send("No puedes eliminar más de 100 mensajes a la vez. Por favor, especifica un número menor.")
             return
 
-        deleted = await ctx.channel.purge(limit=amount + 1)
-        message = await ctx.send(f"Se han eliminado {len(deleted) - 1} mensajes.")
-        await asyncio.sleep(5)
-        await message.delete()
+        try:
+            deleted = await ctx.channel.purge(limit=amount + 1) # +1 para incluir el mensaje del comando
+            message = await ctx.send(f"Se han eliminado {len(deleted) - 1} mensajes correctamente.")
+            await asyncio.sleep(5)
+            await message.delete()
+        except discord.Forbidden:
+            await ctx.send("Error de permisos: No tengo los permisos necesarios para eliminar mensajes en este canal.")
+        except discord.HTTPException as e:
+            await ctx.send(f"Error al eliminar mensajes: {e}")
 
-    @commands.command()
-    async def infomod(self, ctx):
-        embed = discord.Embed(
-            title="📋 Comandos de Moderación",
-            description="Aquí tienes una lista de comandos disponibles con `!flex`:",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="`!flex ban @usuario [razón]`", value="Banea a un usuario del servidor.", inline=False)
-        embed.add_field(name="`!flex kick @usuario [razón]`", value="Expulsa a un usuario del servidor.", inline=False)
-        embed.add_field(name="`!flex mute @usuario [duración] [razón]`", value="Silencia temporalmente a un usuario. Ejemplo: `10m`, `1h`.", inline=False)
-        embed.add_field(name="`!flex warn @usuario [razón]`", value="Envía una advertencia a un usuario.", inline=False)
-        embed.add_field(name="`!flex clear [cantidad]`", value="Elimina una cantidad de mensajes del canal.", inline=False)
-        embed.add_field(name="`!flex slowmode [segundos]`", value="Activa el modo lento en el canal actual.", inline=False)
-        embed.add_field(name="`!flex infomod`", value="Muestra este mensaje de ayuda.", inline=False)
-        embed.set_footer(text="Sistema de Moderación | Bot creado por Rafa")
-        await ctx.send(embed=embed)
 
     @commands.command()
     @commands.has_permissions(manage_channels=True)
     async def slowmode(self, ctx, seconds: int):
-        if seconds < 0 or seconds > 21600:
-            await ctx.send("El tiempo debe estar entre 0 y 21600 segundos (6 horas).")
+        if not (0 <= seconds <= 21600): # 21600 segundos = 6 horas
+            await ctx.send("El tiempo para el modo lento debe estar entre 0 segundos (desactivado) y 21600 segundos (6 horas).")
             return
 
-        await ctx.channel.edit(slowmode_delay=seconds)
+        try:
+            await ctx.channel.edit(slowmode_delay=seconds)
+            if seconds == 0:
+                await ctx.send(f"El modo lento ha sido desactivado en el canal {ctx.channel.mention}.")
+            else:
+                await ctx.send(f"Modo lento establecido a {seconds} segundos en el canal {ctx.channel.mention}.")
+        except discord.Forbidden:
+            await ctx.send("Error de permisos: No tengo los permisos necesarios para modificar el modo lento en este canal.")
+        except discord.HTTPException as e:
+            await ctx.send(f"Error al establecer el modo lento: {e}")
 
-        if seconds == 0:
-            await ctx.send("Modo lento desactivado en este canal.")
-        else:
-            await ctx.send(f"Modo lento establecido a {seconds} segundos en este canal.")
 
     @commands.command()
     @commands.has_permissions(manage_messages=True)

@@ -43,17 +43,28 @@ class Warnings(commands.Cog):
         warning_count = len(warnings[server_id][user_id])
 
         embed = discord.Embed(
-            title="Usuario Advertido",
-            description=f"{member.mention} ha recibido una advertencia.",
-            color=discord.Color.yellow()
+            title="⚠️ Usuario Advertido",
+            description=f"El usuario {member.mention} ha recibido una advertencia.",
+            color=discord.Color.yellow(),
+            timestamp=datetime.datetime.utcnow()
         )
-        embed.add_field(name="Razón", value=reason)
-        embed.add_field(name="Advertencias totales", value=str(warning_count))
-        embed.set_footer(text=f"Advertido por {ctx.author.name}")
-        await ctx.send(embed=embed)
+        embed.add_field(name="Razón de la Advertencia", value=reason, inline=False)
+        embed.add_field(name="Número Total de Advertencias", value=str(warning_count), inline=False)
+        embed.set_footer(text=f"Advertencia emitida por: {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
 
-        if warning_count == 3:
-            await ctx.send(f"{member.mention} ha recibido 3 advertencias. Considera tomar medidas adicionales.")
+        try:
+            await ctx.send(embed=embed)
+            # Considerar enviar un DM al usuario advertido (opcional y configurable)
+            # try:
+            # await member.send(f"Has recibido una advertencia en el servidor '{ctx.guild.name}' por la siguiente razón: {reason}. Tienes {warning_count} advertencia(s) en total.")
+            # except discord.Forbidden:
+            # await ctx.send(f"No se pudo notificar a {member.mention} por DM sobre la advertencia.", delete_after=10)
+        except discord.HTTPException as e:
+            await ctx.send(f"Error al enviar el mensaje de advertencia: {e}")
+
+
+        if warning_count >= 3: # Podría ser configurable
+            await ctx.send(f"Atención moderadores: {member.mention} ha acumulado {warning_count} advertencias. Se recomienda revisar su caso y considerar medidas adicionales si es necesario.")
 
 async def setup(bot):
     await bot.add_cog(Warnings(bot)) 
