@@ -44,11 +44,27 @@ class Reports(commands.Cog):
             os.makedirs('data')
         
         if os.path.exists(self.reports_file):
-            with open(self.reports_file, 'r') as f:
-                self.reports = json.load(f)
+            try:
+                with open(self.reports_file, 'r') as f:
+                    # Intentar leer y decodificar el archivo JSON
+                    content = f.read()
+                    if not content.strip(): # Archivo está vacío o solo espacios en blanco
+                        self.reports = {}
+                    else:
+                        self.reports = json.loads(content) # Usar json.loads en lugar de json.load
+            except json.JSONDecodeError:
+                # Si hay un error de decodificación (archivo corrupto o no JSON)
+                self.reports = {}
+            except Exception as e:
+                # Otro tipo de error al leer el archivo
+                print(f"Error inesperado al cargar reports.json: {e}")
+                self.reports = {}
         else:
+            # Si el archivo no existe, inicializar con un diccionario vacío
             self.reports = {}
-            self.save_reports()
+
+        # Siempre guardar el estado actual (especialmente si se corrigió o se creó)
+        self.save_reports()
 
     def save_reports(self):
         """Guardar reportes en el archivo"""
