@@ -8,10 +8,5 @@ def setup_bot():
     intents.members = True
     intents.message_content = True
 
-    def prefijo_custom(bot, message):
-        if message.content.startswith("!flex "):
-            return "!flex "
-        return commands.when_mentioned_or("!flex ")(bot, message)
-
-    bot = commands.Bot(command_prefix=prefijo_custom, intents=intents)
+    bot = commands.Bot(command_prefix=commands.when_mentioned_or("!flex "), intents=intents)
     return bot 

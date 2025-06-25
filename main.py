@@ -40,34 +40,58 @@ async def list_commands(ctx):
 # Manejo de errores
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.MissingPermissions):
-        await ctx.send("No tienes permisos para usar este comando.")
+    # Extraer el comando original si es un error de un subcomando/grupo
+    invoked_command = ctx.command
+    if hasattr(ctx.command, 'parent') and ctx.command.parent is not None:
+        invoked_command = ctx.command.parent
+
+    error_message = None
+    log_error = True # Por defecto, loguear el error
+
+    if isinstance(error, commands.CommandNotFound):
+        comando_intentado = ctx.invoked_with
+        error_message = f"El comando `{comando_intentado}` no existe. Usa `!flex info` para ver la lista de comandos disponibles."
+        log_error = False # No es un error inesperado del bot
+    elif isinstance(error, commands.MissingPermissions):
+        error_message = f"No tienes los permisos necesarios para ejecutar el comando `!flex {invoked_command.name if invoked_command else ctx.invoked_with}`."
     elif isinstance(error, commands.MissingRequiredArgument):
-        if ctx.command and ctx.command.name == "report":
-            await ctx.send("❌ **Formato incorrecto.** Usa: `!flex report @usuario razón`")
-        else:
-            await ctx.send(f"Faltan argumentos requeridos: {error}")
-    elif isinstance(error, commands.BadArgument):
-        if ctx.command and ctx.command.name == "report":
-            await ctx.send("❌ **Usuario no encontrado.** Debes mencionar a un usuario válido: `!flex report @usuario razón`")
-        else:
-            await ctx.send(f"Argumento incorrecto: {error}")
-    elif isinstance(error, commands.CommandNotFound):
-        comando = ctx.message.content.split()[1] if len(ctx.message.content.split()) > 1 else "desconocido"
-        await ctx.send(f"Comando no encontrado: `{comando}`. Usa `!flex info` para ver los comandos disponibles.")
-    elif isinstance(error, commands.MemberNotFound):
-        if ctx.command and ctx.command.name == "report":
-            await ctx.send("❌ **Usuario no encontrado.** Asegúrate de mencionar al usuario correctamente con @.")
-        else:
-            await ctx.send(f"Usuario no encontrado: {error}")
-    else:
-        # Registrar el error completo para depuración
-        print(f"Error no manejado ({type(error).__name__}): {error}")
+        param_name = error.param.name
+        error_message = f"Falta un argumento requerido para el comando `!flex {invoked_command.name if invoked_command else ctx.invoked_with}`: `{param_name}`.\nConsulta la ayuda con `!flex info` o `!flex info2`."
+    elif isinstance(error, commands.BadArgument) or isinstance(error, commands.UserNotFound) or isinstance(error, commands.MemberNotFound) or isinstance(error, commands.ChannelNotFound):
+        error_message = f"Argumento inválido proporcionado para `!flex {invoked_command.name if invoked_command else ctx.invoked_with}`. {str(error)}"
+        if 'member' in str(error).lower() or 'user' in str(error).lower():
+             error_message += "\nAsegúrate de mencionar correctamente al usuario (@Usuario) o proporcionar una ID válida."
+        elif 'channel' in str(error).lower():
+            error_message += "\nAsegúrate de mencionar correctamente el canal (#canal) o proporcionar una ID válida."
+    elif isinstance(error, commands.CommandOnCooldown):
+        error_message = f"Este comando está en enfriamiento. Inténtalo de nuevo en {error.retry_after:.2f} segundos."
+    elif isinstance(error, commands.CheckFailure): # Error genérico para fallos de checks (ej. @commands.guild_only())
+        error_message = f"No cumples con los requisitos para ejecutar este comando (`!flex {invoked_command.name if invoked_command else ctx.invoked_with}`) aquí."
+    # Errores específicos de la lógica del bot (se pueden añadir más aquí si se lanzan excepciones personalizadas)
+    # elif isinstance(error, MiExcepcionPersonalizada):
+        # error_message = "Ocurrió un error específico: ..."
+
+    if error_message:
+        try:
+            await ctx.send(f"❌ **Error:** {error_message}")
+        except discord.Forbidden:
+            print(f"No se pudo enviar mensaje de error al canal {ctx.channel.id} en el servidor {ctx.guild.id} por falta de permisos.")
+        except Exception as e:
+            print(f"Error enviando mensaje de error: {e}")
+
+
+    if log_error:
+        # Registrar el error completo para depuración, especialmente si no fue manejado arriba
+        print(f"Error no manejado en el comando '{ctx.command.qualified_name if ctx.command else 'desconocido'}':")
+        import traceback
+        traceback.print_exception(type(error), error, error.__traceback__)
         
-        if ctx.command and ctx.command.name == "report":
-            await ctx.send("❌ **Error al procesar el comando.** Uso correcto: `!flex report @usuario razón`")
-        else:
-            await ctx.send(f"Error: {error}")
+        # Opcionalmente, enviar un mensaje genérico si no se envió uno específico antes
+        if not error_message:
+            try:
+                await ctx.send("😕 Ocurrió un error inesperado al procesar el comando. El administrador ha sido notificado.")
+            except: # Ignorar si no se puede enviar
+                pass
 
 # Cargar cogs
 async def load_extensions():

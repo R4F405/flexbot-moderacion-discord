@@ -64,7 +64,7 @@ class ThreadManager(commands.Cog):
             try:
                 expires_at_dt = datetime.datetime.fromisoformat(expires_at_str)
             except ValueError:
-                print(f"Error al parsear expires_at para el hilo {thread_id_str}: {expires_at_str}")
+                print(f"Error al parsear 'expires_at' para el hilo {thread_id_str}: {expires_at_str}")
                 continue
 
             if now_utc >= expires_at_dt:
@@ -72,55 +72,55 @@ class ThreadManager(commands.Cog):
                 try:
                     guild = self.bot.get_guild(int(thread_info["guild_id"]))
                     if not guild:
-                        print(f"No se encontró el servidor {thread_info['guild_id']} para el hilo {thread_id_str}")
-                        # Considerar eliminar el hilo de active_threads si el servidor ya no existe o el bot no está en él
-                        del self.active_threads[thread_id_str]
-                        threads_updated = True
+                        print(f"No se encontró el servidor con ID {thread_info['guild_id']} para el hilo {thread_id_str}. Eliminando de hilos activos.")
+                        if thread_id_str in self.active_threads:
+                            del self.active_threads[thread_id_str]
+                            threads_updated = True
                         continue
-
-                    # Intentar obtener el hilo desde la API de Discord
-                    # discord.py v2.0+ usa guild.get_thread(thread_id) o bot.get_channel(thread_id) para hilos
-                    # pero es mejor obtenerlo directamente si ya tenemos el ID.
-                    # Necesitamos el objeto Thread para editarlo.
 
                     discord_thread = guild.get_thread(int(thread_id_str))
                     if not discord_thread:
-                        # Si el hilo no se encuentra (quizás fue borrado manualmente), lo eliminamos de nuestros registros
-                        print(f"Hilo {thread_id_str} no encontrado en el servidor. Eliminando de active_threads.")
-                        del self.active_threads[thread_id_str]
+                        print(f"Hilo {thread_id_str} no encontrado en el servidor {guild.name}. Eliminando de hilos activos.")
+                        if thread_id_str in self.active_threads:
+                            del self.active_threads[thread_id_str]
+                            threads_updated = True
+                        continue
+
+                    if discord_thread.archived:
+                        print(f"Hilo {thread_id_str} ('{thread_info.get('name')}') ya estaba archivado. Actualizando estado.")
+                        thread_info["status"] = "archived_externally" # O un estado similar
                         threads_updated = True
                         continue
 
-                    await discord_thread.edit(archived=True, locked=True)
 
                     # Opcional: Enviar un mensaje al hilo antes de archivarlo
                     try:
-                        await discord_thread.send(f"Este hilo ('{thread_info['name']}') ha sido cerrado automáticamente porque su tiempo ha expirado.")
+                        await discord_thread.send(f"Este hilo ('{thread_info['name']}') ha sido cerrado y archivado automáticamente porque su tiempo ha expirado.")
                     except discord.Forbidden:
-                        print(f"No se pudo enviar mensaje de cierre al hilo {thread_id_str} (probablemente ya estaba archivado/bloqueado).")
+                        print(f"No se pudo enviar mensaje de cierre al hilo {thread_id_str} (probablemente ya estaba archivado/bloqueado o permisos insuficientes).")
                     except Exception as e:
                         print(f"Error enviando mensaje de cierre al hilo {thread_id_str}: {e}")
 
-
+                    await discord_thread.edit(archived=True, locked=True)
                     thread_info["status"] = "archived_expired"
-                    # Podríamos eliminarlo de active_threads o simplemente cambiar el estado
-                    # Por ahora, cambiamos el estado. Si se quisiera "limpiar" la lista, se eliminaría.
-                    # del self.active_threads[thread_id_str]
                     threads_updated = True
-                    print(f"Hilo {thread_id_str} archivado y bloqueado exitosamente.")
+                    print(f"Hilo {thread_id_str} ('{thread_info.get('name')}') archivado y bloqueado exitosamente.")
 
                 except discord.Forbidden:
-                    print(f"Error de permisos al intentar archivar el hilo {thread_id_str}.")
-                    # Marcar para no reintentar constantemente si es un problema de permisos persistente
+                    print(f"Error de permisos al intentar archivar el hilo {thread_id_str} en el servidor {thread_info.get('guild_id')}.")
                     thread_info["status"] = "archival_failed_permissions"
                     threads_updated = True
                 except discord.NotFound:
-                    print(f"Hilo {thread_id_str} no encontrado al intentar archivar (quizás ya fue borrado). Eliminando de active_threads.")
-                    if thread_id_str in self.active_threads: # Comprobar antes de borrar por si acaso
+                    print(f"Hilo {thread_id_str} no encontrado (NotFound) al intentar archivar. Eliminando de hilos activos.")
+                    if thread_id_str in self.active_threads:
                         del self.active_threads[thread_id_str]
                     threads_updated = True
                 except Exception as e:
                     print(f"Error inesperado al archivar el hilo {thread_id_str}: {e}")
+                    # Podríamos añadir un reintento o marcarlo como error para revisión manual
+                    thread_info["status"] = "archival_failed_unknown"
+                    threads_updated = True
+
 
         if threads_updated:
             save_json_data(ACTIVE_THREADS_FILE, self.active_threads)
@@ -136,7 +136,7 @@ class ThreadManager(commands.Cog):
         Ejemplo: !flex cerrarhilo
         """
         if not isinstance(ctx.channel, discord.Thread):
-            await ctx.send("Este comando solo puede usarse dentro de un hilo.")
+            await ctx.send("Este comando solo puede ser utilizado dentro de un hilo.")
             return
 
         thread_id_str = str(ctx.channel.id)
@@ -147,7 +147,7 @@ class ThreadManager(commands.Cog):
             return
 
         if thread_info.get("status") != "open":
-            await ctx.send(f"Este hilo ('{thread_info.get('name')}') ya no está activo (estado: {thread_info.get('status')}).")
+            await ctx.send(f"Este hilo ('{thread_info.get('name')}') ya no se encuentra activo (estado actual: {thread_info.get('status')}). No se puede cerrar de nuevo.")
             return
 
         try:
@@ -155,29 +155,29 @@ class ThreadManager(commands.Cog):
 
             if mensaje_opcional:
                 try:
-                    await discord_thread.send(f"**Anuncio de cierre:** {mensaje_opcional}\nEste hilo será archivado.")
+                    await discord_thread.send(f"**Anuncio de cierre por moderador ({ctx.author.mention}):** {mensaje_opcional}\nEste hilo será archivado y bloqueado.")
                 except discord.Forbidden:
-                    await ctx.send("No pude enviar el mensaje opcional al hilo (quizás ya está archivado/bloqueado o no tengo permisos), pero intentaré cerrarlo.")
+                    await ctx.send("No pude enviar el mensaje opcional al hilo (quizás ya está archivado/bloqueado o no tengo permisos suficientes), pero procederé a cerrarlo.")
                 except Exception as e:
-                    await ctx.send(f"Error enviando mensaje opcional: {e}. Intentaré cerrar el hilo de todas formas.")
+                    await ctx.send(f"Se produjo un error al enviar el mensaje opcional: {e}. Intentaré cerrar el hilo de todas formas.")
 
             await discord_thread.edit(archived=True, locked=True)
 
             thread_info["status"] = "archived_manual"
-            # Opcionalmente, podríamos eliminarlo de active_threads si no queremos mantener un registro de hilos cerrados manualmente por mucho tiempo.
-            # Por ahora, solo actualizamos el estado.
+            thread_info["closed_by"] = str(ctx.author.id) # Guardar quién lo cerró
             save_json_data(ACTIVE_THREADS_FILE, self.active_threads)
 
-            await ctx.send(f"Hilo '{thread_info['name']}' ({discord_thread.mention}) archivado y bloqueado manualmente.")
-            # El mensaje de confirmación se envía al contexto original (el hilo mismo), lo que está bien.
+            # Enviar confirmación al canal donde se ejecutó el comando (el hilo mismo)
+            await ctx.send(f"El hilo '{thread_info['name']}' ({discord_thread.mention}) ha sido archivado y bloqueado manualmente por {ctx.author.mention}.")
+            # No enviar un mensaje adicional al hilo ya que ctx.send lo hace.
 
         except discord.Forbidden:
-            await ctx.send(f"Error: No tengo los permisos necesarios para archivar/bloquear este hilo.")
+            await ctx.send(f"Error: No tengo los permisos necesarios para archivar y/o bloquear este hilo.")
         except discord.HTTPException as e:
-            await ctx.send(f"Error de API al intentar cerrar el hilo: {e}")
+            await ctx.send(f"Se produjo un error de comunicación con Discord al intentar cerrar el hilo: {e}")
         except Exception as e:
-            await ctx.send(f"Ocurrió un error inesperado al cerrar el hilo: {e}")
-            print(f"Error en cerrarhilo: {e}")
+            await ctx.send(f"Ocurrió un error inesperado al intentar cerrar el hilo: {e}")
+            print(f"Error en el comando cerrarhilo: {e}")
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -228,18 +228,18 @@ class ThreadManager(commands.Cog):
     async def designate_thread_channel(self, ctx, channel: discord.TextChannel):
         """Designa un canal de texto como un 'canal principal' para crear hilos gestionados por el bot."""
         guild_id = str(ctx.guild.id)
-        channel_id = str(channel.id)
+        channel_id_str = str(channel.id)
 
         if guild_id not in self.thread_channels:
             self.thread_channels[guild_id] = []
 
-        if channel_id in self.thread_channels[guild_id]:
-            await ctx.send(f"El canal {channel.mention} ya está designado como un canal principal para hilos.")
+        if channel_id_str in self.thread_channels[guild_id]:
+            await ctx.send(f"El canal {channel.mention} ya está designado como un canal principal para la creación de hilos gestionados.")
             return
 
-        self.thread_channels[guild_id].append(channel_id)
+        self.thread_channels[guild_id].append(channel_id_str)
         save_json_data(THREAD_CHANNELS_FILE, self.thread_channels)
-        await ctx.send(f"El canal {channel.mention} ha sido designado como un canal principal para hilos. Ahora se pueden crear hilos gestionados en él usando `!flex crearhilo`.")
+        await ctx.send(f"El canal {channel.mention} ha sido designado como un 'canal principal para hilos'. Ahora los moderadores pueden usar `!flex crearhilo` en este canal para iniciar nuevos hilos gestionados.")
 
     @commands.command(name="quitarhilocanal")
     @commands.has_permissions(manage_channels=True)
@@ -247,18 +247,18 @@ class ThreadManager(commands.Cog):
     async def remove_thread_channel(self, ctx, channel: discord.TextChannel):
         """Quita la designación de 'canal principal' para hilos de un canal de texto."""
         guild_id = str(ctx.guild.id)
-        channel_id = str(channel.id)
+        channel_id_str = str(channel.id)
 
-        if guild_id not in self.thread_channels or channel_id not in self.thread_channels[guild_id]:
-            await ctx.send(f"El canal {channel.mention} no está designado actualmente como un canal principal para hilos.")
+        if guild_id not in self.thread_channels or channel_id_str not in self.thread_channels[guild_id]:
+            await ctx.send(f"El canal {channel.mention} no está designado actualmente como un 'canal principal para hilos'.")
             return
 
-        self.thread_channels[guild_id].remove(channel_id)
+        self.thread_channels[guild_id].remove(channel_id_str)
         if not self.thread_channels[guild_id]: # Si la lista queda vacía, eliminar la clave del servidor
             del self.thread_channels[guild_id]
 
         save_json_data(THREAD_CHANNELS_FILE, self.thread_channels)
-        await ctx.send(f"El canal {channel.mention} ya no es un canal principal para hilos.")
+        await ctx.send(f"El canal {channel.mention} ha sido removido de la lista de 'canales principales para hilos'. Ya no se podrán crear hilos gestionados directamente en él con `!flex crearhilo`.")
 
     @commands.command(name="crearhilo")
     @commands.has_permissions(manage_threads=True) # o manage_messages, o un rol custom
@@ -276,7 +276,7 @@ class ThreadManager(commands.Cog):
 
         # Verificar si el canal actual es un canal principal designado para hilos
         if guild_id not in self.thread_channels or channel_id not in self.thread_channels[guild_id]:
-            await ctx.send(f"Este comando solo puede usarse en un canal designado como 'principal para hilos'. Usa `!flex designarhilocanal` primero.")
+            await ctx.send(f"Este comando solo puede ser utilizado en un canal previamente designado como 'principal para hilos'.\nPor favor, use `!flex designarhilocanal #{ctx.channel.name}` si desea designar este canal, o ejecute el comando en un canal ya designado.")
             return
 
         seconds_duration = None
@@ -298,21 +298,33 @@ class ThreadManager(commands.Cog):
                 elif time_unit == 'd':
                     seconds_duration = time_value * 86400
                 else:
-                    await ctx.send("Unidad de tiempo no válida para `duracion_temporal`. Usa s, m, h, o d.")
+                    await ctx.send("Unidad de tiempo no válida para `duracion_temporal`. Utilice 's' (segundos), 'm' (minutos), 'h' (horas), o 'd' (días). Ejemplo: `30m`, `2h`, `1d`.")
                     return
 
                 if seconds_duration <= 0:
-                    await ctx.send("La duración temporal debe ser mayor que cero.")
+                    await ctx.send("La duración temporal especificada debe ser mayor que cero.")
                     return
+
+                # Discord impone límites a la duración de auto-archivado.
+                # Para hilos públicos, el máximo es 10080 minutos (7 días).
+                # Para hilos privados (requiere boost nivel 2), también 7 días.
+                # Si nuestro bot gestiona el cierre, esto es menos relevante para `auto_archive_duration` de Discord.
+                # Pero si la duración es muy larga, el bot debe manejarla.
+                max_discord_auto_archive_minutes = 10080 # 7 días
+                if seconds_duration > max_discord_auto_archive_minutes * 60 and not ctx.guild.premium_tier >= 2: # Asumiendo que hilos más largos pueden requerir boost
+                    # Esta lógica puede necesitar ajuste según cómo se quiera manejar hilos muy largos.
+                    # Por ahora, permitimos duraciones largas y el bot las gestionará.
+                    pass
+
 
                 expires_at_dt = datetime.datetime.utcnow() + datetime.timedelta(seconds=seconds_duration)
                 expires_at_iso = expires_at_dt.isoformat()
 
             except ValueError:
-                await ctx.send("Formato de `duracion_temporal` incorrecto. Ejemplo: 10m, 1h, 2d.")
+                await ctx.send("Formato de `duracion_temporal` incorrecto. Debe ser un número seguido de una unidad (s, m, h, d). Ejemplo: `30m`, `1h`, `2d`.")
                 return
-            except Exception as e: # Captura de otros posibles errores como slice en None si duracion_temporal es solo un caracter
-                await ctx.send(f"Error procesando `duracion_temporal`: {e}")
+            except Exception as e:
+                await ctx.send(f"Error al procesar la `duracion_temporal`: {e}. Verifique el formato.")
                 return
 
         try:
@@ -333,51 +345,55 @@ class ThreadManager(commands.Cog):
             # O, si se prefiere un hilo directamente del canal (puede requerir diferentes permisos o configuración):
             # discord_thread = await ctx.channel.create_thread(name=nombre_del_hilo, type=discord.ChannelType.public_thread)
 
-
             created_at_iso = datetime.datetime.utcnow().isoformat()
+            notify_bool = notificar_participantes.lower() in ['si', 'yes', 'true', 'activado']
 
             thread_info = {
                 "name": nombre_del_hilo,
                 "parent_channel_id": channel_id,
                 "guild_id": guild_id,
                 "creator_id": str(ctx.author.id),
-                "discord_thread_id": str(discord_thread.id), # Guardamos el ID real del hilo de Discord
+                "discord_thread_id": str(discord_thread.id),
                 "temporary": is_temporary,
                 "duration_seconds": seconds_duration if seconds_duration else None,
                 "created_at": created_at_iso,
-                "expires_at": expires_at_iso, # Puede ser None si no es temporal
-                "participants_to_notify": [str(ctx.author.id)] if notificar_participantes.lower() == 'si' else [],
-                "notify_enabled": notificar_participantes.lower() == 'si',
-                "status": "open" # open, archived
+                "expires_at": expires_at_iso,
+                "participants_to_notify": [str(ctx.author.id)] if notify_bool else [],
+                "notify_enabled": notify_bool,
+                "status": "open"
             }
             self.active_threads[str(discord_thread.id)] = thread_info
             save_json_data(ACTIVE_THREADS_FILE, self.active_threads)
 
             embed = discord.Embed(
-                title="✅ Hilo Creado",
-                description=f"Se ha creado el hilo: {discord_thread.mention}",
+                title="✅ ¡Hilo Creado Exitosamente!",
+                description=f"Se ha iniciado el hilo: {discord_thread.mention}",
                 color=discord.Color.green()
             )
-            embed.add_field(name="Nombre", value=nombre_del_hilo)
-            if is_temporary and seconds_duration:
-                embed.add_field(name="Duración", value=duracion_temporal)
-                embed.add_field(name="Expira en (UTC)", value=expires_at_dt.strftime('%Y-%m-%d %H:%M:%S UTC') if expires_at_dt else "N/A")
+            embed.add_field(name="Nombre del Hilo", value=nombre_del_hilo, inline=False)
+            if is_temporary and seconds_duration and expires_at_dt:
+                embed.add_field(name="Duración Temporal", value=duracion_temporal, inline=True)
+                # Formatear la fecha de expiración de forma más legible
+                expira_str = expires_at_dt.strftime('%d de %B de %Y a las %H:%M:%S UTC')
+                embed.add_field(name="Expira Aproximadamente", value=expira_str, inline=True)
 
-            embed.add_field(name="Notificaciones", value="Activadas" if notificar_participantes.lower() == "si" else "Desactivadas")
+            embed.add_field(name="Notificaciones para Participantes", value="Activadas" if notify_bool else "Desactivadas", inline=False)
+            embed.set_footer(text=f"Hilo creado por: {ctx.author.display_name}")
+
             await ctx.send(embed=embed)
-            # El mensaje inicial "Iniciando hilo..." puede ser borrado si se desea
-            # await thread_message.delete()
-            # O editado:
-            await thread_message.edit(content=f"Hilo '{nombre_del_hilo}' creado por {ctx.author.mention}. ¡Únete a la conversación en {discord_thread.mention}!")
 
+            # Editar el mensaje ancla del hilo
+            await thread_message.edit(content=f"El hilo '{nombre_del_hilo}' ha sido iniciado por {ctx.author.mention}. ¡Únete a la conversación en {discord_thread.mention}!")
 
         except discord.Forbidden:
-            await ctx.send("Error: No tengo los permisos necesarios para crear hilos en este canal.")
+            await ctx.send("Error de permisos: No tengo los permisos necesarios para crear hilos en este canal. Asegúrate de que tengo el permiso 'Crear Hilos Públicos' (o 'Crear Hilos Privados' si aplica).")
         except discord.HTTPException as e:
-            await ctx.send(f"Error de API al crear el hilo: {e}")
+            await ctx.send(f"Se produjo un error de comunicación con Discord al intentar crear el hilo: {e}")
         except Exception as e:
-            await ctx.send(f"Ocurrió un error inesperado al crear el hilo: {e}")
-            print(f"Error en crearhilo: {e}") # Log para el desarrollador
+            await ctx.send(f"Ocurrió un error inesperado al crear el hilo: {e}. Revisa los logs para más detalles.")
+            print(f"Error detallado en crearhilo: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 async def setup(bot):
