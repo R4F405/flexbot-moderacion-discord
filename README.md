@@ -176,6 +176,15 @@ Usa `!flex info2` para una lista completa en Discord. Aquí algunos destacados:
     *   *Ejemplo:* `!flex crearhilo "Discusión sobre el evento X" 2d si`
 *   `!flex cerrarhilo [mensaje opcional]`: Cierra manualmente el hilo actual (debe ser ejecutado dentro del hilo).
 
+**Encuestas y Votaciones:**
+
+*   `!flex createpoll "Pregunta" "Opción 1" "Opción 2" ... "Opción N"`: Crea una encuesta con hasta 10 opciones.
+    *   Requiere permisos de `Gestionar Mensajes`.
+    *   *Ejemplo:* `!flex createpoll "¿Cuál es tu color favorito?" "Rojo" "Verde" "Azul"`
+*   `!flex closepoll [ID_del_mensaje_de_la_encuesta]`: Cierra una encuesta activa y muestra los resultados.
+    *   Requiere permisos de `Gestionar Mensajes`.
+    *   *Ejemplo:* `!flex closepoll 123456789012345678`
+
 ## ⚙️ Configuración Automática
 
 Al iniciarse o al usar ciertos comandos, FlexBot puede crear automáticamente:
